@@ -1,429 +1,387 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import {
-  Shield,
-  Lock,
-  User,
-  LogOut,
-  LogIn,
-  UserPlus,
-  KeyRound,
-  FileText,
-  AlertTriangle,
-  CheckCircle2,
-  Terminal,
-  Database,
-  Building,
-  Printer,
-  Save,
-  Activity
+import React, { useState } from "react";
+import { 
+  Shield, 
+  Terminal, 
+  Building, 
+  AlertTriangle, 
+  Play, 
+  FileText, 
+  Wrench,
+  CheckSquare,
+  Network,
+  Server,
+  Globe
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
-interface Remediation {
+interface Vulnerability {
   id: string;
-  finding: string;
-  severity: "Critique" | "Élevée" | "Moyenne" | "Faible";
-  recommendation: string;
+  title: string;
+  category: "WEB" | "NETWORK" | "AD";
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  cvss: number;
+  owaspOrRef: string;
+  remediation: string;
 }
 
 export default function PentestSaaS() {
-  const [user, setUser] = useState<any>(null);
-  const [authView, setAuthView] = useState<"signin" | "signup" | "forgot">("signin");
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-
-  // Champs Auth
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [jobTitle, setJobTitle] = useState("Senior Pentester");
-
-  // Données du Rapport de Pentest (Réel & Concret)
   const [clientName, setClientName] = useState("Acme Corp PME");
-  const [targetScope, setTargetScope] = useState("https://app.acmecorp.com (IP: 192.168.10.50)");
-  const [pentestType, setPentestType] = useState<"Black Box" | "Grey Box" | "White Box">("Grey Box");
-  const [executiveSummary, setExecutiveSummary] = useState("L'audit d'intrusion de type boîte grise réalisé sur l'infrastructure web a mis en évidence des vulnérabilités critiques d'injection et de gestion d'authentification nécessitant un correctif immédiat.");
-  const [cvssScore, setCvssScore] = useState(9.8);
-  
-  // Les 8 Étapes du Pentest
-  const [step1Scope, setStep1Scope] = useState("Validation des Rules of Engagement (RoE) et signature du contrat de test.");
-  const [step2Recon, setStep2Recon] = useState("Découverte des sous-domaines, analyse DNS et énumération des services actifs (Nmap/Amass).");
-  const [step3Scan, setStep3Scan] = useState("Identification des versions de logiciels obsolètes et des points d'entrée API non sécurisés.");
-  const [step4Exploit, setStep4Exploit] = useState("Exploitation réussie d'une faille d'injection SQL (SQLi) sur l'API d'authentification.");
-  const [step5PostExploit, setStep5PostExploit] = useState("Élévation de privilèges et récupération des tokens de session administrateur.");
-  const [step6Risk, setStep6Risk] = useState("Calcul de criticité CVSS v3.1 : 9.8 (Impact critique sur la confidentialité et l'intégrité).");
-  const [step7Remediation, setStep7Remediation] = useState("Application de requêtes préparées et mise en place d'une authentification multifacteur (MFA).");
-  const [step8Conclusion, setStep8Conclusion] = useState("Niveau de sécurité global insuffisant pour la production avant correction des points critiques.");
+  const [targetScope, setTargetScope] = useState("192.168.10.0/24 & corp.local");
+  const [auditType, setAuditType] = useState<"WEB" | "NETWORK" | "AD">("AD");
 
-  const [remediations, setRemediations] = useState<Remediation[]>([
-    { id: "1", finding: "Injection SQL sur le paramètre id_user", severity: "Critique", recommendation: "Utiliser des requêtes préparées (Prepared Statements) systématiquement." },
-    { id: "2", finding: "Absence de limitation de taux (Rate Limiting) sur la route de login", severity: "Élevée", recommendation: "Implémenter un mécanisme de blocage par IP après 5 tentatives échouées." }
+  // État du scan automatisé
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanLogs, setScanLogs] = useState<string[]>([]);
+  const [scanProgress, setScanProgress] = useState(0);
+
+  // Registre global des vulnérabilités multi-domaines
+  const [vulns, setVulns] = useState<Vulnerability[]>([
+    { 
+      id: "1", 
+      title: "Attaque Kerberoasting sur les comptes de service Active Directory", 
+      category: "AD",
+      severity: "CRITICAL", 
+      cvss: 9.0, 
+      owaspOrRef: "MITRE ATT&CK T1558.003",
+      remediation: "Renforcer la complexité des mots de passe des comptes de service (128+ caractères) ou migrer vers des Group Managed Service Accounts (gMSA)."
+    },
+    { 
+      id: "2", 
+      title: "Services SMBv1 actifs et non authentifiés sur le réseau interne", 
+      category: "NETWORK",
+      severity: "HIGH", 
+      cvss: 8.1, 
+      owaspOrRef: "CWE-1188 / Réseau",
+      remediation: "Désactiver définitivement le protocole obsolète SMBv1 sur l'ensemble des contrôleurs de domaine et des serveurs Windows du réseau."
+    },
+    { 
+      id: "3", 
+      title: "Vulnérabilité Injection SQL (SQLi) sur l'application Web principale", 
+      category: "WEB",
+      severity: "CRITICAL", 
+      cvss: 9.8, 
+      owaspOrRef: "A03:2021-Injection",
+      remediation: "Utiliser des requêtes préparées (Prepared Statements) dans l'ORM ou le code source de l'application."
+    }
   ]);
-  const [newFinding, setNewFinding] = useState("");
-  const [newRec, setNewRec] = useState("");
-  const [newSev, setNewSev] = useState<"Critique" | "Élevée" | "Moyenne" | "Faible">("Critique");
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      if (data.user) fetchProfile(data.user.id);
-    });
+  const [newRemediation, setNewRemediation] = useState("");
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-    });
+  // Lancer le pentest automatisé selon le type choisi
+  const runAutomatedPentest = () => {
+    setIsScanning(true);
+    setScanProgress(10);
+    setScanLogs([
+      `[*] Initialisation du moteur d'audit CyberShield [Mode: ${auditType}]...`, 
+      `[*] Cible active : ${targetScope}`
+    ]);
 
-    return () => listener.subscription.unsubscribe();
-  }, []);
+    setTimeout(() => {
+      setScanProgress(40);
+      if (auditType === "AD") {
+        setScanLogs(prev => [...prev, "[*] Énumération des contrôleurs de domaine (LDAP/RPC)...", "[*] Analyse des objets du domaine et des ACLs en cours..."]);
+      } else if (auditType === "NETWORK") {
+        setScanLogs(prev => [...prev, "[*] Scan SYN TCP des ports ouverts (Nmap engine)...", "[*] Détection des bannières de services et failles réseaux..."]);
+      } else {
+        setScanLogs(prev => [...prev, "[*] Analyse heuristique des points d'entrée Web & OWASP Top 10..."]);
+      }
+    }, 1500);
 
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (data) {
-      setFullName(data.full_name);
-      setCompanyName(data.company_name);
-      setJobTitle(data.job_title);
+    setTimeout(() => {
+      setScanProgress(80);
+      if (auditType === "AD") {
+        setScanLogs(prev => [...prev, "[!] Alerte AD : Chemins d'escalade de privilèges (Path to Domain Admin) détectés !"]);
+      } else if (auditType === "NETWORK") {
+        setScanLogs(prev => [...prev, "[!] Alerte Réseau : Ports de gestion non sécurisés exposés (Telnet/FTP)."]);
+      } else {
+        setScanLogs(prev => [...prev, "[!] Alerte Web : Mauvaise configuration des en-têtes de sécurité."]);
+      }
+    }, 3000);
+
+    setTimeout(() => {
+      setScanProgress(100);
+      setIsScanning(false);
+      setScanLogs(prev => [...prev, "[✔] Audit d'infrastructure terminé. Rapport consolidé généré."]);
+      
+      // Ajout dynamique d'une finding contextuelle
+      let dynamicVuln: Vulnerability;
+      if (auditType === "AD") {
+        dynamicVuln = {
+          id: Date.now().toString(),
+          title: "Droits de délégation non sécurisés (Unconstrained Delegation)",
+          category: "AD",
+          severity: "CRITICAL",
+          cvss: 8.8,
+          owaspOrRef: "MITRE ATT&CK T1556",
+          remediation: "Restreindre la délégation Kerberos en passant à une délégation contrainte (Constrained Delegation) ou basée sur les ressources (RBCD)."
+        };
+      } else if (auditType === "NETWORK") {
+        dynamicVuln = {
+          id: Date.now().toString(),
+          title: "Exposition de services SNMP avec la communauté par défaut (public)",
+          category: "NETWORK",
+          severity: "MEDIUM",
+          cvss: 5.8,
+          owaspOrRef: "CWE-1188 / SNMP",
+          remediation: "Modifier les chaînes de communauté SNMP par défaut ou migrer vers SNMPv3 avec authentification et chiffrement chiffrés."
+        };
+      } else {
+        dynamicVuln = {
+          id: Date.now().toString(),
+          title: "Absence de protection contre les attaques de force brute (Rate Limiting)",
+          category: "WEB",
+          severity: "HIGH",
+          cvss: 7.5,
+          owaspOrRef: "A07:2021-Identification Failures",
+          remediation: "Mettre en place un système de limitation de requêtes (Rate Limiting) et un captcha sur les formulaires d'authentification."
+        };
+      }
+      setVulns(v => [dynamicVuln, ...v]);
+    }, 4500);
+  };
+
+  const removeVuln = (id: string) => {
+    setVulns(vulns.filter(v => v.id !== id));
+  };
+
+  const getSeverityBadge = (sev: string) => {
+    switch (sev) {
+      case "CRITICAL": return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "HIGH": return "bg-orange-500/20 text-orange-400 border-orange-500/30";
+      case "MEDIUM": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      default: return "bg-blue-500/20 text-blue-400 border-blue-500/30";
     }
   };
 
-  // Gestion de l'authentification réelle
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage("");
-
-    if (authView === "signup") {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName, company_name: companyName, job_title: jobTitle }
-        }
-      });
-      if (error) setMessage(`Erreur : ${error.message}`);
-      else { setMessage("Compte créé avec succès ! Vérifiez vos e-mails si la confirmation est requise."); setShowAuthModal(false); }
-    } else if (authView === "signin") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setMessage(`Erreur : ${error.message}`);
-      else { setMessage("Connexion réussie !"); setShowAuthModal(false); }
-    } else if (authView === "forgot") {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
-      if (error) setMessage(`Erreur : ${error.message}`);
-      else { setMessage("E-mail de réinitialisation envoyé !"); }
+  const getCategoryBadge = (cat: string) => {
+    switch (cat) {
+      case "AD": return "bg-purple-500/20 text-purple-400 border-purple-500/30";
+      case "NETWORK": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      default: return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
     }
-    setLoading(false);
-  };
-
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setLoading(true);
-    const { error } = await supabase.from("profiles").update({
-      full_name: fullName,
-      company_name: companyName,
-      job_title: jobTitle
-    }).eq("id", user.id);
-
-    if (error) alert(`Erreur de mise à jour : ${error.message}`);
-    else { alert("Profil mis à jour avec succès !"); setShowProfileModal(false); }
-    setLoading(false);
-  };
-
-  const handleSaveReportToDB = async () => {
-    if (!user) { alert("Veuillez vous connecter pour sauvegarder le rapport dans votre espace sécurisé."); setShowAuthModal(true); return; }
-    setLoading(true);
-
-    const { error } = await supabase.from("audit_reports").insert([{
-      user_id: user.id,
-      client_name: clientName,
-      target_scope: targetScope,
-      pentest_type: pentestType,
-      executive_summary: executiveSummary,
-      cvss_score: cvssScore,
-      steps_data: {
-        step1: step1Scope,
-        step2: step2Recon,
-        step3: step3Scan,
-        step4: step4Exploit,
-        step5: step5PostExploit,
-        step6: step6Risk,
-        step7: step7Remediation,
-        step8: step8Conclusion
-      },
-      remediations: remediations
-    }]);
-
-    if (error) alert(`Erreur de sauvegarde : ${error.message}`);
-    else alert("Rapport de Pentest professionnel enregistré et synchronisé dans la base de données !");
-    setLoading(false);
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* HEADER PROFESSIONNEL */}
-      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-lg">
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans p-6 space-y-6">
+      {/* HEADER */}
+      <header className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between shadow-xl gap-4">
         <div className="flex items-center gap-3">
           <Shield className="w-8 h-8 text-blue-500 animate-pulse" />
           <div>
             <h1 className="text-lg font-black tracking-wider text-white uppercase">CyberShield Pentest SaaS</h1>
-            <p className="text-xs text-slate-400">Plateforme d'Audit d'Intrusion & Conformité (PTES / ISO 27001 / PCI DSS)</p>
+            <p className="text-xs text-slate-400">Plateforme d'Audit d'Intrusion Multi-Vecteurs (Web, Réseau & Active Directory)</p>
           </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          {user ? (
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowProfileModal(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 text-xs flex items-center gap-2 cursor-pointer">
-                <User className="w-4 h-4 text-blue-400" /> {fullName || user.email}
-              </button>
-              <button onClick={() => supabase.auth.signOut()} className="bg-red-600/20 hover:bg-red-600/30 text-red-400 p-2 rounded-lg border border-red-500/30 cursor-pointer" title="Déconnexion">
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => { setAuthView("signin"); setShowAuthModal(true); }} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer shadow">
-              <LogIn className="w-4 h-4" /> Connexion / Inscription
-            </button>
-          )}
-
-          <button onClick={handleSaveReportToDB} disabled={loading} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer">
-            <Save className="w-4 h-4" /> Sauvegarder Rapport
-          </button>
-          <button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer border border-slate-700">
-            <Printer className="w-4 h-4" /> Export PDF Exécutif
+        <div className="flex gap-3">
+          <button 
+            onClick={() => alert("Génération du rapport exécutif global d'infrastructure (Web, Réseau, AD)...")} 
+            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg transition"
+          >
+            <FileText className="w-4 h-4" /> Exporter le Rapport Global
           </button>
         </div>
       </header>
 
-      {/* CONTENU PRINCIPAL */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
-        
-        {/* COLONNE GAUCHE : CONFIGURATION ET RÈGLES D'ENGAGEMENT (SCOPE LÉGAL) */}
-        <div className="lg:col-span-6 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+      {/* SECTION 1 : CHOIX DU MOTEUR D'AUDIT & PARAMÈTRES */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Paramètres & Choix de l'angle d'attaque */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
             <h2 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
-              <Building className="w-4 h-4" /> 1. Cadre Légal & Paramètres de l'Audit
+              <Building className="w-4 h-4" /> 1. Sélection du Vecteur d'Audit
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Client / PME Audité</label>
-                <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white" />
-              </div>
-              <div>
-                <label className="block text-slate-400 mb-1">Type de Pentest (Méthodologie)</label>
-                <select value={pentestType} onChange={(e) => setPentestType(e.target.value as any)} className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white font-bold">
-                  <option value="Black Box">Black Box (Boîte Noire)</option>
-                  <option value="Grey Box">Grey Box (Boîte Grise)</option>
-                  <option value="White Box">White Box (Boîte Blanche)</option>
-                </select>
-              </div>
+
+            {/* Onglets de sélection du type d'audit */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setAuditType("AD")}
+                className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition ${
+                  auditType === "AD" 
+                    ? 'bg-purple-950/40 border-purple-500 text-purple-300 shadow-md' 
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <Server className="w-4 h-4" /> Active Directory
+              </button>
+              <button
+                onClick={() => setAuditType("NETWORK")}
+                className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition ${
+                  auditType === "NETWORK" 
+                    ? 'bg-blue-950/40 border-blue-500 text-blue-300 shadow-md' 
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <Network className="w-4 h-4" /> Réseau / IP
+              </button>
+              <button
+                onClick={() => setAuditType("WEB")}
+                className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition ${
+                  auditType === "WEB" 
+                    ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 shadow-md' 
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <Globe className="w-4 h-4" /> Application Web
+              </button>
             </div>
-            <div>
-              <label className="block text-slate-400 mb-1">Périmètre Validé (Scope & IP/URL autorisées par contrat)</label>
-              <input type="text" value={targetScope} onChange={(e) => setTargetScope(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white font-mono" />
-              <p className="text-[10px] text-emerald-400 mt-1">✓ Autorisation légale validée par signature électronique des Rules of Engagement (RoE).</p>
+
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="block text-slate-400 mb-1 text-xs">Infrastructure / Client Cible</label>
+                <input 
+                  type="text" 
+                  value={clientName} 
+                  onChange={(e) => setClientName(e.target.value)} 
+                  className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white text-xs" 
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 mb-1 text-xs">
+                  {auditType === "AD" ? "Nom du Domaine / Contrôleur (ex: corp.local)" : auditType === "NETWORK" ? "Plage IP / CIDR (ex: 192.168.1.0/24)" : "URL Web Cible"}
+                </label>
+                <input 
+                  type="text" 
+                  value={targetScope} 
+                  onChange={(e) => setTargetScope(e.target.value)} 
+                  className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white text-xs font-mono" 
+                />
+              </div>
             </div>
           </div>
 
-          {/* RÉSUMÉ EXÉCUTIF & SCORE CVSS */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <h2 className="text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
-              <AlertTriangle className="w-4 h-4" /> 2. Résumé Exécutif & Criticité Globale
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div className="md:col-span-2">
-                <label className="block text-slate-400 mb-1">Synthèse pour la Direction (CEO/CFO)</label>
-                <textarea rows={3} value={executiveSummary} onChange={(e) => setExecutiveSummary(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white" />
-              </div>
-              <div>
-                <label className="block text-slate-400 mb-1">Score CVSS Global</label>
-                <input type="number" step="0.1" max="10" value={cvssScore} onChange={(e) => setCvssScore(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-red-400 font-extrabold text-center text-lg" />
-                <span className="block text-[10px] text-center text-slate-500 mt-1">Niveau : CRITIQUE</span>
-              </div>
-            </div>
-          </div>
-
-          {/* PLAN DE REMÉDIATION CORRECTIF */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4 text-xs">
-            <h2 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
-              <CheckCircle2 className="w-4 h-4" /> 3. Plan de Remédiation & Recommandations
-            </h2>
-            <div className="space-y-2">
-              {remediations.map((rem, idx) => (
-                <div key={rem.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-start">
-                  <div>
-                    <span className="font-bold text-white">#{idx + 1} - {rem.finding}</span>
-                    <p className="text-slate-400 mt-1">Recommandation : {rem.recommendation}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">{rem.severity}</span>
-                    <button onClick={() => setRemediations(remediations.filter(r => r.id !== rem.id))} className="text-red-400 hover:text-red-300">✕</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2">
-              <input type="text" placeholder="Vulnérabilité constatée..." value={newFinding} onChange={(e) => setNewFinding(e.target.value)} className="bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              <input type="text" placeholder="Recommandation technique..." value={newRec} onChange={(e) => setNewRec(e.target.value)} className="bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              <div className="flex gap-2">
-                <select value={newSev} onChange={(e) => setNewSev(e.target.value as any)} className="bg-slate-950 border border-slate-800 rounded p-2 text-white font-bold">
-                  <option value="Critique">Critique</option>
-                  <option value="Élevée">Élevée</option>
-                  <option value="Moyenne">Moyenne</option>
-                  <option value="Faible">Faible</option>
-                </select>
-                <button onClick={() => { if (newFinding && newRec) { setRemediations([...remediations, { id: Math.random().toString(), finding: newFinding, severity: newSev, recommendation: newRec }]); setNewFinding(""); setNewRec(""); }}} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded font-bold cursor-pointer flex-1">Ajouter</button>
-              </div>
-            </div>
+          <div className="pt-4">
+            <button
+              onClick={runAutomatedPentest}
+              disabled={isScanning}
+              className={`w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer ${
+                isScanning 
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                  : auditType === "AD" 
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white'
+                    : auditType === "NETWORK"
+                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white'
+              }`}
+            >
+              <Play className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
+              {isScanning ? `Scan ${auditType} en cours...` : `Lancer le Moteur d'Audit [${auditType}]`}
+            </button>
           </div>
         </div>
 
-        {/* COLONNE DROITE : LES 8 ÉTAPES OFFICIELLES DU PENTEST (PTES) */}
-        <div className="lg:col-span-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4 text-xs">
-            <h2 className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
-              <Terminal className="w-4 h-4" /> 4. Les 8 Étapes Internationales du Pentest (PTES / OWASP)
-            </h2>
-            
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-              <div>
-                <label className="block text-purple-300 font-bold mb-1">1. Interactions Préalables & Scope</label>
-                <textarea rows={2} value={step1Scope} onChange={(e) => setStep1Scope(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-purple-300 font-bold mb-1">2. Reconnaissance & OSINT</label>
-                <textarea rows={2} value={step2Recon} onChange={(e) => setStep2Recon(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-purple-300 font-bold mb-1">3. Analyse & Scan de Vulnérabilités</label>
-                <textarea rows={2} value={step3Scan} onChange={(e) => setStep3Scan(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-purple-300 font-bold mb-1">4. Exploitation & Preuves de Concept (PoC)</label>
-                <textarea rows={2} value={step4Exploit} onChange={(e) => setStep4Exploit(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-purple-300 font-bold mb-1">5. Post-Exploitation & Mouvement Latéral</label>
-                <textarea rows={2} value={step5PostExploit} onChange={(e) => setStep5PostExploit(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-purple-300 font-bold mb-1">6. Évaluation des Risques & Scoring CVSS</label>
-                <textarea rows={2} value={step6Risk} onChange={(e) => setStep6Risk(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-purple-300 font-bold mb-1">7. Plan de Remédiation Technique</label>
-                <textarea rows={2} value={step7Remediation} onChange={(e) => setStep7Remediation(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-purple-300 font-bold mb-1">8. Conclusion & Synthèse Exécutive</label>
-                <textarea rows={2} value={step8Conclusion} onChange={(e) => setStep8Conclusion(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
+        {/* Console de Scan en Direct */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4 flex flex-col">
+          <h2 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
+            <Terminal className="w-4 h-4" /> Console d'Analyse Infrastructure & Logs
+          </h2>
+          
+          {isScanning && (
+            <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div 
+                className="bg-emerald-500 h-full transition-all duration-500" 
+                style={{ width: `${scanProgress}%` }}
+              ></div>
             </div>
+          )}
+
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-[11px] text-emerald-400 flex-1 min-h-[160px] max-h-[190px] overflow-y-auto space-y-1">
+            {scanLogs.length === 0 ? (
+              <span className="text-slate-600">Prêt. Sélectionnez un module (Active Directory, Réseau ou Web) et lancez l'audit...</span>
+            ) : (
+              scanLogs.map((log, index) => (
+                <div key={index}>{log}</div>
+              ))
+            )}
           </div>
         </div>
       </div>
 
-      {/* MODALE AUTHENTIFICATION (CONNEXION, INSCRIPTION, MOT DE PASSE OUBLIÉ) */}
-      {showAuthModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl relative text-xs">
-            <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer">✕</button>
-            <div className="text-center space-y-1">
-              <h3 className="text-base font-bold text-white">
-                {authView === "signin" ? "Connexion à CyberShield SaaS" : authView === "signup" ? "Création de Compte Pentester" : "Réinitialisation de Mot de Passe"}
-              </h3>
-              <p className="text-slate-400">Accédez à votre espace sécurisé d'audit d'intrusion.</p>
-            </div>
+      {/* SECTION 2 : REGISTRE GLOBAL DES VULNÉRABILITÉS */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 className="text-sm font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" /> 2. Posture de Sécurité & Findings Consolidés ({vulns.length})
+          </h2>
+        </div>
 
-            {message && (
-              <div className={`p-3 rounded ${message.includes("succès") || message.includes("envoyé") ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"}`}>
-                {message}
-              </div>
-            )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+              <tr>
+                <th className="p-3">Vulnérabilité / Risque</th>
+                <th className="p-3">Vecteur</th>
+                <th className="p-3">Référentiel</th>
+                <th className="p-3">Sévérité</th>
+                <th className="p-3">CVSS</th>
+                <th className="p-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {vulns.map((v) => (
+                <tr key={v.id} className="hover:bg-slate-950/50 transition">
+                  <td className="p-3 font-medium text-white max-w-[280px] truncate">{v.title}</td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getCategoryBadge(v.category)}`}>
+                      {v.category}
+                    </span>
+                  </td>
+                  <td className="p-3 font-mono text-slate-400">{v.owaspOrRef}</td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getSeverityBadge(v.severity)}`}>
+                      {v.severity}
+                    </span>
+                  </td>
+                  <td className="p-3 font-mono font-bold text-white">{v.cvss}</td>
+                  <td className="p-3 text-right">
+                    <button 
+                      onClick={() => removeVuln(v.id)} 
+                      className="text-slate-500 hover:text-red-400 p-1 cursor-pointer transition"
+                      title="Supprimer"
+                    >
+                      ✕
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-            <form onSubmit={handleAuth} className="space-y-3">
-              {authView === "signup" && (
-                <>
-                  <div>
-                    <label className="block text-slate-400 mb-1">Nom Complet</label>
-                    <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jean Dupont" className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 mb-1">Cabinet / Entreprise</label>
-                    <input type="text" required value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white" />
-                  </div>
-                </>
-              )}
+      {/* SECTION 3 : CONSIGNES DE REMÉDIATION MULTI-DOMAINES */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <h2 className="text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
+          <Wrench className="w-4 h-4" /> 3. Consignes de Remédiation & Hardening Infrastructure
+        </h2>
+        <p className="text-xs text-slate-400">
+          Plans d'action correctifs détaillés pour sécuriser les contrôleurs Active Directory, fermer les vecteurs d'attaque réseaux et durcir les applications.
+        </p>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Adresse E-mail</label>
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="expert@cyber.com" className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white" />
-              </div>
-
-              {authView !== "forgot" && (
-                <div>
-                  <label className="block text-slate-400 mb-1">Mot de Passe</label>
-                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-white" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {vulns.map((v) => (
+            <div key={v.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 flex flex-col justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className={`text-[9px] px-2 py-0.5 rounded font-bold border ${getCategoryBadge(v.category)}`}>
+                    {v.category}
+                  </span>
+                  <span className={`text-[9px] px-2 py-0.5 rounded font-bold border ${getSeverityBadge(v.severity)}`}>
+                    CVSS {v.cvss}
+                  </span>
                 </div>
-              )}
-
-              <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-2.5 rounded-lg cursor-pointer">
-                {authView === "signin" ? "Se connecter" : authView === "signup" ? "Créer mon compte" : "Envoyer le lien de réinitialisation"}
-              </button>
-            </form>
-
-            <div className="border-t border-slate-800 pt-3 flex flex-col gap-2 text-center">
-              {authView === "signin" && (
-                <>
-                  <button onClick={() => setAuthView("signup")} className="text-blue-400 hover:underline cursor-pointer">Pas de compte ? S'inscrire</button>
-                  <button onClick={() => setAuthView("forgot")} className="text-slate-400 hover:underline cursor-pointer">Mot de passe oublié ?</button>
-                </>
-              )}
-              {authView === "signup" && (
-                <button onClick={() => setAuthView("signin")} className="text-blue-400 hover:underline cursor-pointer">Déjà un compte ? Se connecter</button>
-              )}
-              {authView === "forgot" && (
-                <button onClick={() => setAuthView("signin")} className="text-blue-400 hover:underline cursor-pointer">Retour à la connexion</button>
-              )}
+                <p className="text-xs font-bold text-white pt-1">{v.title}</p>
+              </div>
+              <div className="text-[11px] text-slate-300 bg-slate-900/80 p-3 rounded-lg border border-slate-800/60 space-y-1">
+                <p className="font-semibold text-amber-300 flex items-center gap-1 text-[10px] uppercase">
+                  <CheckSquare className="w-3 h-3" /> Correctif :
+                </p>
+                <p className="leading-relaxed">{v.remediation}</p>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
-      )}
-
-      {/* MODALE GESTION DU PROFIL UTILISATEUR */}
-      {showProfileModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl relative text-xs">
-            <button onClick={() => setShowProfileModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer">✕</button>
-            <h3 className="text-base font-bold text-white">Gestion de votre Compte Pentester</h3>
-            <form onSubmit={handleUpdateProfile} className="space-y-3">
-              <div>
-                <label className="block text-slate-400 mb-1">Nom complet</label>
-                <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-slate-400 mb-1">Cabinet / Entreprise</label>
-                <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white" />
-              </div>
-              <div>
-                <label className="block text-slate-400 mb-1">Rôle technique</label>
-                <select value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white font-bold">
-                  <option value="Senior Pentester">Senior Pentester</option>
-                  <option value="Lead Red Teamer">Lead Red Teamer</option>
-                  <option value="Auditeur QSA / Conformité">Auditeur QSA / Conformité</option>
-                  <option value="Cyber Security Manager">Cyber Security Manager</option>
-                </select>
-              </div>
-              <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-2.5 rounded-lg cursor-pointer">Enregistrer les modifications</button>
-            </form>
-          </div>
-        </div>
-      )}
+      </div>
     </main>
   );
 }

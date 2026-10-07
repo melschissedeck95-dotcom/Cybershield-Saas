@@ -9,7 +9,6 @@ export interface VulnerabilityItem {
   remediation: string
 }
 
-// Alias pour correspondre à ton import dans page.tsx
 export interface ScanReportData {
   clientName: string
   targetScope: string
@@ -18,7 +17,6 @@ export interface ScanReportData {
   findings: VulnerabilityItem[]
 }
 
-// Rétrocompatibilité si d'autres composants utilisent l'ancien nom
 export type FullPentestReport = ScanReportData
 
 export const generateEnterprisePentestPDF = (report: ScanReportData) => {
@@ -27,10 +25,10 @@ export const generateEnterprisePentestPDF = (report: ScanReportData) => {
   let yPos = 20
 
   // En-tête du document
-  doc.setFillColor(15, 23, 42) // Fond sombre (slate-900)
+  doc.setFillColor(15, 23, 42)
   doc.rect(0, 0, pageWidth, 40, 'F')
 
-  doc.setTextColor(6, 182, 212) // Cyan-400
+  doc.setTextColor(6, 182, 212)
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
   doc.text('CYBERSHIELD ENTERPRISE', 15, 25)
@@ -58,7 +56,8 @@ export const generateEnterprisePentestPDF = (report: ScanReportData) => {
 
   yPos += 15
   doc.setLineWidth(0.5)
-  doc.setLineColor(200, 200, 200)
+  // Utilisation de setDrawColor compatible avec toutes les versions de jsPDF
+  doc.setDrawColor(200, 200, 200)
   doc.line(15, yPos, pageWidth - 15, yPos)
 
   yPos += 12
@@ -103,9 +102,7 @@ export const generateEnterprisePentestPDF = (report: ScanReportData) => {
     doc.text(`Page ${i} / ${totalPages}`, pageWidth - 25, 285)
   }
 
-  // Téléchargement direct du PDF
   doc.save(`Rapport_RedTeam_${report.clientName.replace(/\s+/g, '_')}_${Date.now()}.pdf`)
 }
 
-// Export de secours si un autre fichier utilise l'ancien nom
 export const generateFullEnterpriseReport = generateEnterprisePentestPDF

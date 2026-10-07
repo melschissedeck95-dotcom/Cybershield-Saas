@@ -3,13 +3,14 @@ import jsPDF from 'jspdf'
 export interface VulnerabilityItem {
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
   cvss: string
-  vector: 'Web' | 'Network' | 'Active Directory' | 'API'
+  vector: 'Web' | 'Network' | 'Active Directory' | 'API' | 'Proxy'
   title: string
   description: string
   remediation: string
 }
 
-export interface FullPentestReport {
+// Alias pour correspondre à ton import dans page.tsx
+export interface ScanReportData {
   clientName: string
   targetScope: string
   auditor: string
@@ -17,7 +18,10 @@ export interface FullPentestReport {
   findings: VulnerabilityItem[]
 }
 
-export const generateFullEnterpriseReport = (report: FullPentestReport) => {
+// Rétrocompatibilité si d'autres composants utilisent l'ancien nom
+export type FullPentestReport = ScanReportData
+
+export const generateEnterprisePentestPDF = (report: ScanReportData) => {
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.getWidth()
   let yPos = 20
@@ -102,3 +106,6 @@ export const generateFullEnterpriseReport = (report: FullPentestReport) => {
   // Téléchargement direct du PDF
   doc.save(`Rapport_RedTeam_${report.clientName.replace(/\s+/g, '_')}_${Date.now()}.pdf`)
 }
+
+// Export de secours si un autre fichier utilise l'ancien nom
+export const generateFullEnterpriseReport = generateEnterprisePentestPDF

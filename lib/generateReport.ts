@@ -3,17 +3,21 @@ import jsPDF from 'jspdf'
 export interface VulnerabilityItem {
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
   cvss: string
-  vector: 'Web' | 'Network' | 'Active Directory' | 'API' | 'Proxy'
+  vector?: string
   title: string
   description: string
   remediation: string
 }
 
 export interface ScanReportData {
-  clientName: string
-  targetScope: string
-  auditor: string
+  target?: string
+  targetScope?: string
+  clientName?: string
+  auditor?: string
   date: string
+  scanType?: string
+  status?: string
+  duration?: string
   findings: VulnerabilityItem[]
 }
 
@@ -23,6 +27,10 @@ export const generateEnterprisePentestPDF = (report: ScanReportData) => {
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.getWidth()
   let yPos = 20
+
+  const client = report.clientName || 'Enterprise Corp Global'
+  const scope = report.targetScope || report.target || 'Cible non définie'
+  const aud = report.auditor || 'Senior RedTeam Operator'
 
   // En-tête du document
   doc.setFillColor(15, 23, 42)
@@ -48,15 +56,14 @@ export const generateEnterprisePentestPDF = (report: ScanReportData) => {
   yPos += 8
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Client : ${report.clientName}`, 15, yPos)
-  doc.text(`Cible / Scope : ${report.targetScope}`, 110, yPos)
+  doc.text(`Client : ${client}`, 15, yPos)
+  doc.text(`Cible / Scope : ${scope}`, 110, yPos)
   yPos += 6
-  doc.text(`Opérateur : ${report.auditor}`, 15, yPos)
+  doc.text(`Opérateur : ${aud}`, 15, yPos)
   doc.text(`Date d'audit : ${report.date}`, 110, yPos)
 
   yPos += 15
   doc.setLineWidth(0.5)
-  // Utilisation de setDrawColor compatible avec toutes les versions de jsPDF
   doc.setDrawColor(200, 200, 200)
   doc.line(15, yPos, pageWidth - 15, yPos)
 
@@ -86,7 +93,7 @@ export const generateEnterprisePentestPDF = (report: ScanReportData) => {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.setTextColor(71, 85, 105)
-    doc.text(`Vecteur : ${item.vector} | Description : ${item.description}`, 20, yPos + 16)
+    doc.text(`Vecteur : ${item.vector || 'Infrastructure/Web'} | Description : ${item.description}`, 20, yPos + 16)
     doc.text(`Correctif recommandé : ${item.remediation}`, 20, yPos + 24)
 
     yPos += 38
@@ -102,7 +109,7 @@ export const generateEnterprisePentestPDF = (report: ScanReportData) => {
     doc.text(`Page ${i} / ${totalPages}`, pageWidth - 25, 285)
   }
 
-  doc.save(`Rapport_RedTeam_${report.clientName.replace(/\s+/g, '_')}_${Date.now()}.pdf`)
+  doc.save(`Rapport_RedTeam_${scope.replace(/[\/\s:]+/g, '_')}_${Date.now()}.pdf`)
 }
 
 export const generateFullEnterpriseReport = generateEnterprisePentestPDF

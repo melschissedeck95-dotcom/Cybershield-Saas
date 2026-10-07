@@ -32,22 +32,25 @@ export default function EnterprisePentestSuite() {
 
     setScanning(true)
     setScanCompleted(false)
-    setLogs([`[+] Initialisation de la suite offensive CyberShield Core v5.0`])
-    setLogs(prev => [...prev, `[*] Cible verrouillée : ${target}`])
-    setLogs(prev => [...prev, `[*] Outils activés dans le pipeline : ${selectedTools.join(', ')}`])
+    setLogs([
+      `[+] Initialisation de la suite offensive CyberShield Core v5.0`,
+      `[*] Cible verrouillée : ${target}`,
+      `[*] Outils activés dans le pipeline : ${selectedTools.join(', ')}`
+    ])
 
     let stepIndex = 0
     const interval = setInterval(() => {
       if (stepIndex < selectedTools.length) {
         const toolId = selectedTools[stepIndex]
         const toolInfo = OFFENSIVE_TOOLS.find(t => t.id === toolId)
+        const safeCommand = toolInfo?.defaultCommand ? toolInfo.defaultCommand.replace('<target>', target) : 'N/A'
         
         setLogs(prev => [
           ...prev, 
-          `\n--- [ EXECUTION ] : ${toolInfo?.name} ---`,
-          `> Commande : ${toolInfo?.defaultCommand.replace('<target>', target)}`,
+          `\n--- [ EXECUTION ] : ${toolInfo?.name || toolId} ---`,
+          `> Commande : ${safeCommand}`,
           `[+] Analyse des flux de données en cours sur ${target}...`,
-          `[✓] ${toolInfo?.name} exécuté avec succès. Extraction des artefacts...`
+          `[✓] ${toolInfo?.name || toolId} exécuté avec succès. Extraction des artefacts...`
         ])
         stepIndex++
       } else {
@@ -56,17 +59,19 @@ export default function EnterprisePentestSuite() {
         setScanCompleted(true)
         setLogs(prev => [...prev, `\n[+] Pipeline d'audit complet terminé. Compilation des résultats pour le rapport PDF...`])
 
-        // Compilation des vulnérabilités basées sur l'arsenal exécuté
         setLastResult({
           target,
+          targetScope: target,
+          clientName: "Enterprise Corp Global",
+          auditor: "Senior RedTeam Operator",
           scanType: 'Application Web & Infrastructure Mixte',
           date: new Date().toLocaleDateString('fr-FR'),
           status: 'Terminé',
           duration: '06m 15s',
           findings: [
-            { severity: 'CRITICAL', cvss: '9.8', title: 'Exécution de code à distance (RCE via Metasploit/OpenVAS)', description: 'Service obsolète identifié par Nmap version scan et validé par module d exploitation.', remediation: 'Mettre à jour immédiatement les binaires et appliquer les patchs constructeur.' },
-            { severity: 'HIGH', cvss: '8.2', title: 'Répertoires sensibles exposés (Gobuster / Dirbuster)', description: 'Présence de dossiers de backup (.git, /backup/) accessibles publiquement.', remediation: 'Restreindre l accès aux répertoires administratifs au niveau du pare-feu web.' },
-            { severity: 'MEDIUM', cvss: '5.6', title: 'Divulgation de technologies (WhatWeb / Nikto)', description: 'En-têtes HTTP et bannières serveurs explicitement configurés.', remediation: 'Masquer les informations de version dans les fichiers de configuration du serveur.' }
+            { severity: 'CRITICAL', cvss: '9.8', vector: 'Network', title: 'Exécution de code à distance (RCE via Metasploit/OpenVAS)', description: 'Service obsolète identifié par Nmap version scan et validé par module d exploitation.', remediation: 'Mettre à jour immédiatement les binaires et appliquer les patchs constructeur.' },
+            { severity: 'HIGH', cvss: '8.2', vector: 'Web', title: 'Répertoires sensibles exposés (Gobuster / Dirbuster)', description: 'Présence de dossiers de backup (.git, /backup/) accessibles publiquement.', remediation: 'Restreindre l accès aux répertoires administratifs au niveau du pare-feu web.' },
+            { severity: 'MEDIUM', cvss: '5.6', vector: 'Web', title: 'Divulgation de technologies (WhatWeb / Nikto)', description: 'En-têtes HTTP et bannières serveurs explicitement configurés.', remediation: 'Masquer les informations de version dans les fichiers de configuration du serveur.' }
           ]
         })
       }
@@ -117,7 +122,7 @@ export default function EnterprisePentestSuite() {
           </div>
         </div>
 
-        {/* Sélection des Modules d'Attaque (Nmap, Nikto, WhatWeb, Gobuster, etc.) */}
+        {/* Sélection des Modules d'Attaque */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl">
           <h2 className="text-lg font-bold mb-4 text-cyan-400 flex items-center gap-2">
             <Wrench className="w-5 h-5" /> Sélection des Modules et Outils de Pentest

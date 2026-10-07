@@ -287,7 +287,7 @@ export default function UltimateEnterpriseSaaS() {
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                 <input 
-                  type="email5" 
+                  type="email" 
                   required
                   placeholder="analyste@entreprise.com"
                   value={email}

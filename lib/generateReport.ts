@@ -51,26 +51,33 @@ export function generateFullEnterpriseReport(report: FullPentestReport) {
   doc.text('2. Vulnérabilités & Vecteurs Validés', 14, y)
   y += 10
 
+  const maxWidth = 180 // Largeur maximale autorisée avant retour à la ligne automatique
+
   report.findings.forEach((finding) => {
-    if (y > 260) {
+    if (y > 240) {
       doc.addPage()
       y = 20
     }
+
     doc.setFontSize(11)
     doc.setTextColor(190, 18, 60) // Rouge/Alerte
     doc.text(`[${finding.severity}] (CVSS ${finding.cvss}) - ${finding.title}`, 14, y)
-    
-    y += 6
+    y += 7
+
     doc.setFontSize(9)
     doc.setTextColor(70, 65, 65)
     doc.text(`Vecteur: ${finding.vector}`, 14, y)
-    
     y += 6
-    doc.text(`Description: ${finding.description}`, 14, y)
-    
-    y += 6
-    doc.text(`Remédiation: ${finding.remediation}`, 14, y)
-    y += 12
+
+    // Description avec retour à la ligne automatique
+    const descLines = doc.splitTextToSize(`Description: ${finding.description}`, maxWidth)
+    doc.text(descLines, 14, y)
+    y += descLines.length * 5 + 2
+
+    // Remédiation avec retour à la ligne automatique
+    const remLines = doc.splitTextToSize(`Remédiation: ${finding.remediation}`, maxWidth)
+    doc.text(remLines, 14, y)
+    y += remLines.length * 5 + 10
   })
 
   // Téléchargement automatique du PDF

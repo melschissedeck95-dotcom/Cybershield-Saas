@@ -9,7 +9,7 @@ export interface PentestFinding {
   remediation: string
 }
 
-export FullPentestReport {
+export interface FullPentestReport {
   clientName: string
   targetScope: string
   auditor: string
@@ -51,7 +51,7 @@ export function generateFullEnterpriseReport(report: FullPentestReport) {
   doc.text('2. Vulnérabilités & Vecteurs Validés', 14, y)
   y += 10
 
-  report.findings.forEach((finding, index) => {
+  report.findings.forEach((finding) => {
     if (y > 260) {
       doc.addPage()
       y = 20

@@ -132,7 +132,9 @@ export default function RedTeamDashboard() {
     setScanDone(false)
     setCapturedScreenshot(null)
 
-    const finalCmd = tool.commandTemplate.replace('{target}', target)
+    const rawCmd = tool.commandTemplate || tool.defaultCommand || 'echo "No command specified"'
+    const finalCmd = rawCmd.replace('{target}', target)
+
     const executionFlow = [
       `[C2-OPERATOR@cybershield-core ~]# session_spawn --target ${target} --module ${tool.id}`,
       `[+] Établissement du tunnel chiffré AES-256 vers le nœud d'exécution...`,
@@ -180,7 +182,6 @@ export default function RedTeamDashboard() {
       }, (idx + 1) * 700)
     })
   }
-
   const activeTool = OFFENSIVE_TOOLS.find(t => t.id === activeTab)
 
   return (

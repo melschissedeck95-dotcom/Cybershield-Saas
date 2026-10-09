@@ -5,7 +5,8 @@ export interface ToolModule {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
   mitreTechnique: string
   description: string
-  commandTemplate: string
+  commandTemplate?: string
+  defaultCommand?: string
 }
 
 export const OFFENSIVE_TOOLS: ToolModule[] = [

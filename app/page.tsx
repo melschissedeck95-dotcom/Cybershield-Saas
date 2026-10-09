@@ -115,8 +115,7 @@ export default function RedTeamDashboard() {
     if (!consoleRef.current) return null
     try {
       const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(consoleRef.current, { backgroundColor: '#020617', scale: 1, logging: false })
-      const imgData = canvas.toDataURL('image/png')
+const canvas = await html2canvas(consoleRef.current, { background: '#020617', scale: 1, logging: false })      const imgData = canvas.toDataURL('image/png')
       setCapturedScreenshot(imgData)
       return imgData
     } catch (error) {

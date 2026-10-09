@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { generateFullEnterpriseReport, FullPentestReport } from '@/lib/generateReport'
 import { OFFENSIVE_TOOLS, ToolModule } from '@/lib/offensiveTools'
-import { ShieldAlert, Terminal, FileText, CheckCircle2, Users, Download, Database, History, Play, Activity, Bug, Camera, Send, LogOut, Sparkles, Share2, Cpu, Radio, Lock, ShieldAlert as AlertIcon } from 'lucide-react'
+import { ShieldAlert, Terminal, FileText, CheckCircle2, Download, Database, History, Play, Camera, Send, Sparkles, Share2, Cpu, Radio, Lock } from 'lucide-react'
 
 interface SavedReportRecord extends FullPentestReport {
   id: string
@@ -46,9 +46,7 @@ export default function RedTeamDashboard() {
 
   const consoleRef = useRef<HTMLDivElement>(null)
 
-  // Auth & Session
-  const [isLoggedIn, setIsLoggedIn] = useState(true)
-  const [currentUser, setCurrentUser] = useState<UserAccount>({
+  const [currentUser] = useState<UserAccount>({
     name: 'Senior Operator [0x99]',
     email: 'operator@cybershield.corp',
     role: 'RedTeam Commander'
@@ -65,20 +63,7 @@ export default function RedTeamDashboard() {
     if (localReports) {
       try { setSavedReports(JSON.parse(localReports)) } catch (e) { console.error(e) }
     }
-    const savedUser = localStorage.getItem('cybershield_current_user')
-    if (savedUser) {
-      try { 
-        setCurrentUser(JSON.parse(savedUser))
-        setIsLoggedIn(true)
-      } catch (e) { console.error(e) }
-    }
   }, [])
-
-  const handleLogout = () => {
-    setIsLoggedIn(false)
-    localStorage.removeItem('cybershield_current_user')
-    alert("Session fermée avec succès.")
-  }
 
   const handleSocialShare = (platform: 'linkedin' | 'x' | 'telegram' | 'whatsapp') => {
     const text = encodeURIComponent(`Opération RedTeam validée sur ${target} via CyberShield Enterprise C2. #RedTeam #CyberSecurity #OffensiveSecurity`)
@@ -138,7 +123,6 @@ export default function RedTeamDashboard() {
     alert("Rapport tactique archivé avec succès dans le coffre sécurisé !")
   }
 
-  // Exécution dynamique de l'outil sélectionné depuis OFFENSIVE_TOOLS
   const executeToolAdvanced = (tool: ToolModule) => {
     if (!target.trim()) {
       alert('Veuillez spécifier une cible (IP, FQDN ou CIDR) valide.')
@@ -168,7 +152,6 @@ export default function RedTeamDashboard() {
           setScanning(false)
           setScanDone(true)
 
-          // Ajout automatique d'un beacon simulé
           setBeacons(prev => [
             { id: `bcn_${Date.now().toString().slice(-4)}`, target: target, status: 'CONNECTED', privilege: tool.riskLevel === 'CRITICAL' ? 'SYSTEM' : 'WWW-DATA', lastSeen: 'À l\'instant' },
             ...prev
@@ -198,57 +181,6 @@ export default function RedTeamDashboard() {
     })
   }
 
-    const finalCmd = tool.commandTemplate.replace('{target}', target)
-    const executionFlow = [
-      `[C2-OPERATOR@cybershield-core ~]# session_spawn --target ${target} --module ${tool.id}`,
-      `[+] Établissement du tunnel chiffré AES-256 vers le nœud d'exécution...`,
-      `[+] Injection de la commande binaire : ${finalCmd}`,
-      `[INFO] [MITRE ATT&CK: ${tool.mitreTechnique}] — Analyse de la surface d'attaque active.`,
-      `[>] Envoi des paquets de sondage et écoute des bannières de réponse...`,
-      `[CRITICAL] Vulnérabilité majeure validée sur ${target} [Niveau de Risque : ${tool.riskLevel}]`,
-      `[+] Génération automatique du rapport de preuve et des indicateurs de compromission (IOCs)...`
-    ]
-
-    setLogs([`[+] Initialisation de la session offensive avancée pour ${tool.name}...`])
-
-    executionFlow.forEach((line, idx) => {
-      setTimeout(async () => {
-        setLogs(prev => [...prev, line])
-        if (idx === executionFlow.length - 1) {
-          setScanning(false)
-          setScanDone(true)
-
-          // Ajout automatique d'un beacon simulé
-          setBeacons(prev => [
-            { id: `bcn_${Date.now().toString().slice(-4)}`, target: target, status: 'CONNECTED', privilege: tool.riskLevel === 'CRITICAL' ? 'SYSTEM' : 'WWW-DATA', lastSeen: 'À l\'instant' },
-            ...prev
-          ])
-
-          setTimeout(async () => { await captureConsoleScreenshot() }, 400)
-
-          const generated: FullPentestReport = {
-            clientName: "Enterprise Global Infrastructure",
-            targetScope: target,
-            auditor: `${currentUser.name} (${currentUser.role})`,
-            date: new Date().toLocaleDateString('fr-FR'),
-            findings: [
-              { 
-                severity: tool.riskLevel, 
-                cvss: tool.riskLevel === 'CRITICAL' ? '9.8' : '8.5', 
-                vector: tool.category, 
-                title: `Exploitation réussie : ${tool.name}`, 
-                description: `L'outil ${tool.name} a exploité avec succès la cible ${target} en utilisant la technique ${tool.mitreTechnique}.`, 
-                remediation: 'Isoler immédiatement la ressource, révoquer les accès compromis et appliquer les correctifs éditeur.' 
-              }
-            ]
-          }
-          setCurrentReport(generated)
-        }
-      }, (idx + 1) * 700)
-    })
-  }
-
-  // Recherche de l'outil actif si on clique sur un module de l'arsenal
   const activeTool = OFFENSIVE_TOOLS.find(t => t.id === activeTab)
 
   return (
@@ -273,7 +205,6 @@ export default function RedTeamDashboard() {
             <Database className="w-3.5 h-3.5" /> Coffre ({savedReports.length})
           </button>
 
-          {/* Génération automatique de tous les onglets d'outils (Web, AD, Cloud, Wireless, OSINT) */}
           {OFFENSIVE_TOOLS.map(tool => (
             <button 
               key={tool.id} 
@@ -298,11 +229,8 @@ export default function RedTeamDashboard() {
       {/* Main Workspace */}
       <main className="max-w-7xl w-full mx-auto p-6 flex-grow space-y-6">
         
-        {/* --- COMMAND CENTER (DASHBOARD) --- */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
-            
-            {/* Top Telemetry Banner */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center justify-between shadow-lg">
                 <div>
@@ -334,7 +262,6 @@ export default function RedTeamDashboard() {
               </div>
             </div>
 
-            {/* Active Beacons Table */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl">
               <h3 className="text-sm font-bold text-cyan-400 mb-4 flex items-center gap-2 uppercase tracking-wider font-mono">
                 <Radio className="w-4 h-4" /> Télémétrie des Agents & Beacons Actifs
@@ -365,7 +292,6 @@ export default function RedTeamDashboard() {
               </div>
             </div>
 
-            {/* Arsenal Grid Dynamique (Web, AD, Cloud, Wireless, OSINT) */}
             <div>
               <h3 className="text-sm font-bold text-slate-200 mb-4 uppercase tracking-wider font-mono">Arsenal d'Attaque Intégral ({OFFENSIVE_TOOLS.length} modules)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -389,7 +315,6 @@ export default function RedTeamDashboard() {
           </div>
         )}
 
-        {/* --- CHATBOT TACTICS AI --- */}
         {activeTab === 'chatbot' && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl flex flex-col h-[600px]">
             <h2 className="text-xl font-bold mb-2 text-cyan-400 flex items-center gap-2 font-mono">
@@ -423,7 +348,6 @@ export default function RedTeamDashboard() {
           </div>
         )}
 
-        {/* --- COFFRE DES RAPPORTS --- */}
         {activeTab === 'reports' && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl">
             <h2 className="text-xl font-bold mb-2 text-cyan-400 flex items-center gap-2 font-mono">
@@ -464,7 +388,6 @@ export default function RedTeamDashboard() {
           </div>
         )}
 
-        {/* --- CONSOLE D'EXÉCUTION DES OUTILS OFFENSIFS --- */}
         {activeTool && (
           <>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-2xl space-y-6">
@@ -508,7 +431,6 @@ export default function RedTeamDashboard() {
                 </div>
               </div>
 
-              {/* Console de Terminal interactive ciblée par html2canvas */}
               <div ref={consoleRef} className="bg-black border border-slate-800 rounded-xl p-5 h-72 overflow-y-auto font-mono text-xs text-green-400 shadow-inner relative space-y-1">
                 {logs.length === 0 && <span className="text-slate-600">Système prêt. Spécifiez une cible et lancez l'orchestration de l'outil...</span>}
                 {logs.map((log, idx) => (
@@ -519,7 +441,6 @@ export default function RedTeamDashboard() {
               </div>
             </div>
 
-            {/* Panel de Validation, Partage Réseaux Sociaux et Export PDF */}
             {scanDone && currentReport && (
               <div className="bg-gradient-to-r from-slate-900 via-cyan-950/60 to-slate-900 border border-cyan-500/40 p-6 rounded-xl shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6 animate-fade-in">
                 <div className="flex items-center gap-4">

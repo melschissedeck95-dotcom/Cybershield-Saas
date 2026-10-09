@@ -187,6 +187,56 @@ export default function RedTeamDashboard() {
                 cvss: tool.riskLevel === 'CRITICAL' ? '9.8' : '8.5', 
                 vector: tool.category, 
                 title: `Exploitation réussie : ${tool.name}`, 
+                description: `L'outil ${tool.name} a exploité avec succès la cible ${target} en utilisant la technique MITRE ${tool.mitreTechnique}.`, 
+                remediation: 'Isoler immédiatement la ressource, révoquer les accès compromis et appliquer les correctifs éditeur.' 
+              }
+            ]
+          }
+          setCurrentReport(generated)
+        }
+      }, (idx + 1) * 700)
+    })
+  }
+
+    const finalCmd = tool.commandTemplate.replace('{target}', target)
+    const executionFlow = [
+      `[C2-OPERATOR@cybershield-core ~]# session_spawn --target ${target} --module ${tool.id}`,
+      `[+] Établissement du tunnel chiffré AES-256 vers le nœud d'exécution...`,
+      `[+] Injection de la commande binaire : ${finalCmd}`,
+      `[INFO] [MITRE ATT&CK: ${tool.mitreTechnique}] — Analyse de la surface d'attaque active.`,
+      `[>] Envoi des paquets de sondage et écoute des bannières de réponse...`,
+      `[CRITICAL] Vulnérabilité majeure validée sur ${target} [Niveau de Risque : ${tool.riskLevel}]`,
+      `[+] Génération automatique du rapport de preuve et des indicateurs de compromission (IOCs)...`
+    ]
+
+    setLogs([`[+] Initialisation de la session offensive avancée pour ${tool.name}...`])
+
+    executionFlow.forEach((line, idx) => {
+      setTimeout(async () => {
+        setLogs(prev => [...prev, line])
+        if (idx === executionFlow.length - 1) {
+          setScanning(false)
+          setScanDone(true)
+
+          // Ajout automatique d'un beacon simulé
+          setBeacons(prev => [
+            { id: `bcn_${Date.now().toString().slice(-4)}`, target: target, status: 'CONNECTED', privilege: tool.riskLevel === 'CRITICAL' ? 'SYSTEM' : 'WWW-DATA', lastSeen: 'À l\'instant' },
+            ...prev
+          ])
+
+          setTimeout(async () => { await captureConsoleScreenshot() }, 400)
+
+          const generated: FullPentestReport = {
+            clientName: "Enterprise Global Infrastructure",
+            targetScope: target,
+            auditor: `${currentUser.name} (${currentUser.role})`,
+            date: new Date().toLocaleDateString('fr-FR'),
+            findings: [
+              { 
+                severity: tool.riskLevel, 
+                cvss: tool.riskLevel === 'CRITICAL' ? '9.8' : '8.5', 
+                vector: tool.category, 
+                title: `Exploitation réussie : ${tool.name}`, 
                 description: `L'outil ${tool.name} a exploité avec succès la cible ${target} en utilisant la technique ${tool.mitreTechnique}.`, 
                 remediation: 'Isoler immédiatement la ressource, révoquer les accès compromis et appliquer les correctifs éditeur.' 
               }

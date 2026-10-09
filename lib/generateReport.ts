@@ -15,6 +15,7 @@ export interface FullPentestReport {
   auditor: string
   date: string
   findings: PentestFinding[]
+  screenshotDataUri?: string
 }
 
 export function generateFullEnterpriseReport(report: FullPentestReport) {

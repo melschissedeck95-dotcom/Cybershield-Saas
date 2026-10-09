@@ -2,33 +2,47 @@ import { ToolModule } from './offensiveTools'
 
 export const WEB_TOOLS: ToolModule[] = [
   {
-    id: 'nuclei-enterprise',
-    name: 'Nuclei Enterprise DAST Suite',
-    description: 'Scan de vulnérabilités hautement ciblé avec templates personnalisés, détection de CVE 0-day et rate-limiting optimisé.',
+    id: 'nuclei_dast',
+    name: 'Nuclei Enterprise DAST Suite (Hyper-Scan)',
     category: 'Web',
-    commandTemplate: 'nuclei -u https://{target} -t cves/,vulnerabilities/,misconfiguration/ -severity critical,high,medium -rate-limit 150 -json -o scan_results.json',
-    defaultCommand: 'nuclei -u https://<target> -t cves/ -severity critical,high',
     riskLevel: 'CRITICAL',
-    mitreTechnique: 'T1595.002 (Active Scanning)'
+    mitreTechnique: 'T1595.002 (Active Scanning)',
+    mitrePhase: 'Execution',
+    description: 'Scans de vulnérabilités web asynchrones ultra-rapides basés sur des templates YAML compilés et personnalisés.',
+    commandTemplate: 'nuclei -u {target} -severity critical,high,medium -json -silent -rate-limit 150',
+    defaultArgs: { threads: '150', timeout: '5s', extraFlags: '-random-agent -c 50' }
   },
   {
-    id: 'sqlmap-advanced-tamper',
-    name: 'SQLMap Enterprise Engine + Tamper WAF',
-    description: 'Injection SQL automatisée en mode aveugle (Boolean/Time-based) avec scripts de contournement WAF (space2comment, charencode).',
+    id: 'sqlmap_exploit',
+    name: 'SQLMap Autonomous Engine (Multi-Threaded)',
     category: 'Web',
-    commandTemplate: 'sqlmap -u "https://{target}/api/v1/resource?id=1" --tamper=space2comment,between --risk=3 --level=4 --dbs --batch --threads=5',
-    defaultCommand: 'sqlmap -u "https://<target>/api/v1/resource?id=1" --dump',
     riskLevel: 'CRITICAL',
-    mitreTechnique: 'T1190 (Exploit Public-Facing Application)'
+    mitreTechnique: 'T1190 (Exploit Public-Facing Application)',
+    mitrePhase: 'Execution',
+    description: 'Moteur d’injection SQL automatisé avec extraction massive de données en aveugle et contournement WAF.',
+    commandTemplate: 'sqlmap -u "{target}" --batch --dump --risk=3 --level=5 --threads=10',
+    defaultArgs: { threads: '10', timeout: '15s', extraFlags: '--tamper=space2comment --tor' }
   },
   {
-    id: 'ffuf-fuzzing',
-    name: 'FFUF High-Speed Web Fuzzing',
-    description: 'Énumération ultra-rapide de répertoires cachés, paramètres GET/POST et sous-domaines virtuels.',
+    id: 'ffuf_fuzzer',
+    name: 'FFUF High-Speed Web Fuzzer',
     category: 'Web',
-    commandTemplate: 'ffuf -u https://{target}/FUZZ -w /usr/share/wordlists/seclists/Discovery/Web-Content/raft-medium-directories.txt -fc 403,404 -t 80',
-    defaultCommand: 'ffuf -u https://<target>/FUZZ -w common.txt',
     riskLevel: 'HIGH',
-    mitreTechnique: 'T1583.008 (Acquire Infrastructure: Web Services)'
+    mitreTechnique: 'T1595.003 (Wordlist Scanning)',
+    mitrePhase: 'Discovery',
+    description: 'Découverte ultrarapide de répertoires cachés, de fichiers sensibles de configuration et d’API endpoints.',
+    commandTemplate: 'ffuf -u {target}/FUZZ -w /usr/share/wordlists/dirb/common.txt -json -s',
+    defaultArgs: { threads: '200', timeout: '3s', extraFlags: '-fc 404,403 -ac' }
+  },
+  {
+    id: 'zap_baseline',
+    name: 'OWASP ZAP Automated DAST Baseline',
+    category: 'Web',
+    riskLevel: 'HIGH',
+    mitreTechnique: 'T1595.002 (Active Scanning)',
+    mitrePhase: 'Execution',
+    description: 'Scan automatisé de vulnérabilités web et analyse de conformité OWASP Top 10 via le framework ZAP headless.',
+    commandTemplate: 'zap-cli quick-scan --self-contained --start-options "-config api.disablekey=true" {target}',
+    defaultArgs: { threads: '20', timeout: '40s', extraFlags: '--spider --ajax-spider' }
   }
 ]

@@ -26,6 +26,7 @@ interface StructuredIOC {
 
 export default function RedTeamDashboard() {
   const [activeTab, setActiveTab] = useState<string>('dashboard')
+  const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [target, setTarget] = useState('')
   const [scanning, setScanning] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
@@ -173,7 +174,6 @@ export default function RedTeamDashboard() {
     })
   }
 
-  // --- Fonctions de Partage Social & Messagerie ---
   const handleShareWhatsApp = () => {
     if (!currentReport) return
     const text = encodeURIComponent(
@@ -196,6 +196,12 @@ export default function RedTeamDashboard() {
   }
 
   const activeTool = OFFENSIVE_TOOLS.find(t => t.id === activeTab)
+  
+  // Filtrage dynamique des outils par catégorie
+  const filteredTools = OFFENSIVE_TOOLS.filter(tool => {
+    if (selectedCategory === 'All') return true
+    return tool.category === selectedCategory
+  })
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between font-sans selection:bg-cyan-500 selection:text-white">
@@ -217,15 +223,6 @@ export default function RedTeamDashboard() {
           <button onClick={() => setActiveTab('reports')} className={`px-3 py-1.5 rounded transition-all flex items-center gap-1 ${activeTab === 'reports' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-white'}`}>
             <Database className="w-3.5 h-3.5" /> Coffre ({savedReports.length})
           </button>
-          {OFFENSIVE_TOOLS.map(tool => (
-            <button 
-              key={tool.id} 
-              onClick={() => setActiveTab(tool.id)} 
-              className={`px-3 py-1.5 rounded transition-all border ${activeTab === tool.id ? 'bg-cyan-600 text-white border-cyan-400' : 'bg-slate-900 text-cyan-300 border-cyan-500/20'}`}
-            >
-              {tool.name.split(' ')[0]}
-            </button>
-          ))}
           <button onClick={() => setActiveTab('chatbot')} className={`px-3 py-1.5 rounded transition-all border ${activeTab === 'chatbot' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-cyan-300 border-cyan-500/20'}`}>
             <Sparkles className="w-3.5 h-3.5" /> Tactics AI
           </button>
@@ -261,14 +258,34 @@ export default function RedTeamDashboard() {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-sm font-bold text-slate-200 mb-4 uppercase tracking-wider font-mono">Arsenal Offensif Complet (Web, AD, Cloud, Wireless, OSINT)</h3>
+            <div className="space-y-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider font-mono">Arsenal Offensif Complet ({filteredTools.length} modules affichés)</h3>
+                
+                {/* Barre de Filtres par Catégorie */}
+                <div className="flex flex-wrap gap-1.5">
+                  {['All', 'Web', 'Active Directory', 'Cloud', 'Wireless', 'OSINT', 'Network'].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`text-xs px-3 py-1.5 rounded transition font-mono font-semibold ${
+                        selectedCategory === cat
+                          ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/40'
+                          : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {OFFENSIVE_TOOLS.map(tool => (
+                {filteredTools.map(tool => (
                   <div key={tool.id} className="bg-slate-900 border border-cyan-500/30 hover:border-cyan-400 rounded-xl p-6 transition-all shadow-xl flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-center mb-3">
-                        <span className="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded font-mono">{tool.mitrePhase}</span>
+                        <span className="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded font-mono">{tool.category} • {tool.mitrePhase}</span>
                         <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/30 px-2 py-0.5 rounded font-mono">{tool.riskLevel}</span>
                       </div>
                       <h4 className="font-bold text-base text-white mb-1">{tool.name}</h4>
@@ -280,6 +297,13 @@ export default function RedTeamDashboard() {
                         className="flex-grow bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold py-2 px-3 rounded text-xs flex items-center justify-center gap-1.5 transition-colors"
                       >
                         <Settings className="w-3.5 h-3.5" /> Configurer & Lancer
+                      </button>
+                      <button 
+                        onClick={() => setActiveTab(tool.id)}
+                        className="bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 py-2 px-3 rounded text-xs font-bold"
+                        title="Ouvrir la console"
+                      >
+                        <Terminal className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -340,12 +364,17 @@ export default function RedTeamDashboard() {
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-2xl space-y-6">
             <div className="flex justify-between items-center border-b border-slate-800 pb-4">
               <div>
-                <span className="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded font-mono">{activeTool.mitrePhase}</span>
+                <span className="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded font-mono">{activeTool.category} • {activeTool.mitrePhase}</span>
                 <h2 className="text-xl font-extrabold text-white font-mono mt-1">{activeTool.name}</h2>
               </div>
-              <button onClick={() => openConfigModal(activeTool)} className="bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 text-xs font-bold py-2 px-3 rounded flex items-center gap-1.5">
-                <Settings className="w-3.5 h-3.5" /> Paramètres avancés
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setActiveTab('dashboard')} className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 px-3 rounded">
+                  ← Retour Dashboard
+                </button>
+                <button onClick={() => openConfigModal(activeTool)} className="bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 text-xs font-bold py-2 px-3 rounded flex items-center gap-1.5">
+                  <Settings className="w-3.5 h-3.5" /> Paramètres avancés
+                </button>
+              </div>
             </div>
 
             <div ref={consoleRef} className="bg-black border border-slate-800 rounded-xl p-5 h-64 overflow-y-auto font-mono text-xs text-green-400 shadow-inner space-y-1">
